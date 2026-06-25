@@ -1,0 +1,2 @@
+# smartaccess-dashboard
+licenta
