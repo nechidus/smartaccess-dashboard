@@ -1,417 +1,382 @@
 <!DOCTYPE html>
 <html lang="ro">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartAccess IoT - Command Center</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <script src="https://unpkg.com/otpauth/dist/otpauth.umd.min.js"></script> 
-  
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  
-  <style>
-    body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
-    .terminal-glow { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
-    .status-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; }
-    .lockdown-ui { border: 2px solid #ef4444 !important; box-shadow: 0 0 25px rgba(239, 68, 68, 0.3); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartAccess IoT - Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://unpkg.com/otpauth/dist/otpauth.umd.min.js"></script> 
+    
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+        .terminal-glow { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
+        .status-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; }
+        .lockdown-ui { border: 2px solid #ef4444 !important; box-shadow: 0 0 25px rgba(239, 68, 68, 0.3); }
+    </style>
 </head>
 <body class="p-4 md:p-6 h-screen flex flex-col relative overflow-hidden">
 
-  <div id="unlock-modal" class="hidden fixed inset-0 bg-slate-950/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-slate-900 border-2 border-green-500 p-8 rounded-2xl max-w-sm w-full shadow-[0_0_50px_rgba(34,197,94,0.2)]">
-      <h2 class="text-xl font-black text-white mb-2 text-center uppercase tracking-tighter text-green-500">Autorizare deblocare</h2>
-      <p class="text-slate-400 text-xs text-center mb-6 uppercase tracking-widest">Introdu codul din aplicația 2FA</p>
-      
-      <input type="text" id="unlock-otp" onkeypress="if(event.key==='Enter') verifyUnlock2FA()" class="w-full bg-slate-950 border-2 border-slate-700 rounded-lg p-4 text-white text-center text-3xl font-mono tracking-[0.5em] mb-2 focus:border-green-500 outline-none transition" placeholder="000000" maxlength="6">
-      <p id="unlock-error" class="text-red-500 text-[10px] hidden text-center font-bold mb-4 uppercase tracking-widest">⚠️ Cod TOTP invalid!</p>
-      
-      <div class="flex gap-3">
-        <button onclick="verifyUnlock2FA()" class="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-white transition shadow-lg uppercase text-xs">Validare</button>
-        <button onclick="hideUnlockPrompt()" class="flex-1 bg-slate-800 py-3 rounded-lg font-bold text-slate-400 transition text-xs uppercase">Anulare</button>
-      </div>
+    <div id="unlock-modal" class="hidden fixed inset-0 bg-slate-950/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-slate-900 border-2 border-green-500 p-8 rounded-2xl max-w-sm w-full shadow-[0_0_50px_rgba(34,197,94,0.2)]">
+            <h2 class="text-xl font-black text-white mb-2 text-center uppercase tracking-tighter text-green-500">Autorizare deblocare</h2>
+            <p class="text-slate-400 text-xs text-center mb-6 uppercase tracking-widest">Introdu codul din aplicația 2FA</p>
+            <input type="text" id="unlock-otp" onkeypress="if(event.key==='Enter') verifyUnlock2FA()" class="w-full bg-slate-950 border-2 border-slate-700 rounded-lg p-4 text-white text-center text-3xl font-mono tracking-[0.5em] mb-2 focus:border-green-500 outline-none transition" placeholder="000000" maxlength="6">
+            <p id="unlock-error" class="text-red-500 text-[10px] hidden text-center font-bold mb-4 uppercase tracking-widest">⚠️ Cod TOTP invalid!</p>
+            <div class="flex gap-3">
+                <button onclick="verifyUnlock2FA()" class="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-white transition shadow-lg uppercase text-xs">Validare</button>
+                <button onclick="hideUnlockPrompt()" class="flex-1 bg-slate-800 py-3 rounded-lg font-bold text-slate-400 transition text-xs uppercase">Anulare</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div id="login-overlay" class="absolute inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center px-4 transition-opacity duration-300">
-    <div class="bg-slate-900 p-8 rounded-2xl border border-slate-700 shadow-[0_0_50px_rgba(34,197,94,0.1)] w-full max-w-sm">
-      <div class="text-center mb-8">
-        <h2 class="text-3xl font-black text-green-500 tracking-tighter">SmartAccess</h2>
-        <p class="text-slate-400 text-xs tracking-widest uppercase mt-1">Dispecerat Securitate</p>
-      </div>
-      
-      <div id="login-step-1" class="space-y-4">
+    <div id="login-overlay" class="absolute inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center px-4 transition-opacity duration-300">
+        <div class="bg-slate-900 p-8 rounded-2xl border border-slate-700 shadow-[0_0_50px_rgba(34,197,94,0.1)] w-full max-w-sm">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-black text-green-500 tracking-tighter">SmartAccess</h2>
+                <p class="text-slate-400 text-xs tracking-widest uppercase mt-1">Dispecerat Securitate</p>
+            </div>
+            
+            <div id="login-step-1" class="space-y-4">
+                <div>
+                    <label class="block text-slate-500 text-xs font-bold mb-2">UTILIZATOR</label>
+                    <input type="text" id="username" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition" placeholder="admin" autocomplete="off">
+                </div>
+                <div>
+                    <label class="block text-slate-500 text-xs font-bold mb-2">PAROLĂ</label>
+                    <input type="password" id="password" onkeypress="handleEnterStep1(event)" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition" placeholder="••••••••" autocomplete="new-password">
+                </div>
+                <p id="login-error-1" class="text-red-500 text-xs hidden text-center font-bold">⚠️ Date incorecte!</p>
+                <button onclick="verifyCredentials()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition shadow-lg mt-4">
+                    PASUL URMĂTOR ➔
+                </button>
+            </div>
+
+            <div id="login-step-2" class="space-y-4 hidden"> 
+                <div>
+                    <label class="block text-slate-500 text-xs font-bold mb-2 text-center">INTRODU CODUL DIN APLICAȚIA 2FA</label>
+                    <input type="text" id="otp-code" onkeypress="handleEnterStep2(event)" class="w-full bg-slate-950 border-2 border-slate-600 rounded-lg p-4 text-white text-center text-2xl tracking-widest font-mono focus:border-green-500 focus:outline-none transition" placeholder="------" maxlength="6" autocomplete="off">
+                </div>
+                <p id="login-error-2" class="text-red-500 text-xs hidden text-center font-bold uppercase tracking-widest">⚠️ Cod TOTP invalid!</p>
+                
+                <button onclick="verifyTOTP()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg transition shadow-lg mt-4">
+                    AUTENTIFICARE FINALĂ
+                </button>
+                <button onclick="resetLogin()" class="w-full text-slate-500 text-xs hover:text-white transition mt-2">
+                    Înapoi la logare
+                </button>
+            </div>
+        </div>
+        <p class="text-slate-600 text-xs mt-8">Sistem restrictionat. Accesul neautorizat este interzis.</p>
+    </div>
+
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-4 gap-4">
         <div>
-          <label class="block text-slate-500 text-xs font-bold mb-2">UTILIZATOR</label>
-          <input type="text" id="username" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition" placeholder="admin" autocomplete="off">
+            <h1 class="text-3xl font-bold text-green-500 tracking-tighter uppercase">SmartAccess IoT</h1>
+            <p class="text-slate-400 text-sm">Dispecerat Central de Securitate</p>
         </div>
-        <div>
-          <label class="block text-slate-500 text-xs font-bold mb-2">PAROLĂ</label>
-          <input type="password" id="password" onkeypress="handleEnterStep1(event)" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition" placeholder="••••••••" autocomplete="new-password">
+        <div class="text-left md:text-right">
+            <div id="connection-status" class="flex items-center gap-2">
+                <span class="status-dot bg-red-500"></span> 
+                <span class="font-mono text-sm">AȘTEPTARE AUTENTIFICARE</span>
+            </div>
+            <p id="real-time-clock" class="text-xs text-slate-500 mt-1"></p>
         </div>
-        <p id="login-error-1" class="text-red-500 text-xs hidden text-center font-bold">⚠️ Date incorecte!</p>
-        <button onclick="verifyCredentials()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition shadow-lg mt-4">PASUL URMĂTOR ➔</button>
-      </div>
+    </header>
 
-      <div id="login-step-2" class="space-y-4 hidden"> 
-        <div>
-          <label class="block text-slate-500 text-xs font-bold mb-2 text-center">INTRODU CODUL DIN APLICAȚIA 2FA</label>
-          <input type="text" id="otp-code" onkeypress="handleEnterStep2(event)" class="w-full bg-slate-950 border-2 border-slate-600 rounded-lg p-4 text-white text-center text-2xl tracking-widest font-mono focus:border-green-500 focus:outline-none transition" placeholder="------" maxlength="6" autocomplete="off">
+    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-1 overflow-y-auto pb-4">
+        
+        <div id="usa1-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 terminal-glow transition-all duration-300">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl font-semibold">🚪 Ușa 1 (Intrare)</h2>
+            </div>
+            <div class="flex items-center space-x-2 mb-4">
+                <div id="health-u1-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
+                <span id="health-u1-text" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistem Offline</span>
+            </div>
+            <div class="space-y-4">
+                <p class="text-sm">Status: <span id="u1-state" class="text-green-400 font-bold font-mono">ÎNCHIS</span></p>
+                <button onclick="publish('comenzi/usa1', 'OPEN')" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition shadow-lg active:scale-95 text-sm">DESCHIDE MANUAL</button>
+            </div>
         </div>
-        <p id="login-error-2" class="text-red-500 text-xs hidden text-center font-bold uppercase tracking-widest">⚠️ Cod TOTP invalid!</p>
-        <button onclick="verifyTOTP()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg transition shadow-lg mt-4">AUTENTIFICARE FINALĂ</button>
-        <button onclick="resetLogin()" class="w-full text-slate-500 text-xs hover:text-white transition mt-2">Înapoi la logare</button>
-      </div>
-    </div>
-    <p class="text-slate-600 text-xs mt-8">Sistem restrictionat. Accesul neautorizat este interzis.</p>
-  </div>
 
-  <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-4 gap-4">
-    <div>
-      <h1 class="text-3xl font-bold text-green-500 tracking-tighter uppercase">SmartAccess IoT</h1>
-      <p class="text-slate-400 text-sm">Dispecerat Central de Securitate</p>
-    </div>
-    <div class="text-left md:text-right">
-      <div id="connection-status" class="flex items-center gap-2">
-        <span class="status-dot bg-red-500"></span> 
-        <span class="font-mono text-sm">AȘTEPTARE AUTENTIFICARE</span>
-      </div>
-      <p id="real-time-clock" class="text-xs text-slate-500 mt-1"></p>
-    </div>
-  </header>
-
-  <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-1 overflow-y-auto pb-4">
-    <div id="usa1-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 terminal-glow transition-all duration-300">
-      <div class="flex justify-between items-start mb-4"><h2 class="text-xl font-semibold">🚪 Ușa 1 (Intrare)</h2></div>
-      <div class="flex items-center space-x-2 mb-4">
-        <div id="health-u1-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
-        <span id="health-u1-text" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistem Offline</span>
-      </div>
-      <div class="space-y-4">
-        <p class="text-sm">Status: <span id="u1-state" class="text-green-400 font-bold font-mono">ÎNCHIS</span></p>
-        <button onclick="publish('comenzi/usa1', 'OPEN')" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition shadow-lg active:scale-95 text-sm">DESCHIDE MANUAL</button>
-      </div>
-    </div>
-
-    <div id="usa2-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 transition-all duration-300">
-      <div class="flex justify-between items-start mb-4"><h2 class="text-xl font-semibold">🔬 Ușa 2 (Laborator)</h2></div>
-      <div class="flex items-center space-x-2 mb-4">
-        <div id="health-u2-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
-        <span id="health-u2-text" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistem Offline</span>
-      </div>
-      <div class="space-y-4 text-sm">
-        <p>Status: <span id="u2-state" class="text-green-400 font-bold font-mono">ÎNCHIS</span></p>
-        <button onclick="publish('comenzi/usa2', 'OPEN')" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition shadow-lg active:scale-95 text-sm">DESCHIDE MANUAL</button>
-      </div>
-    </div>
-
-    <div id="nod3-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 transition-all duration-300 flex flex-col">
-      <div class="flex justify-between items-start mb-4"><h2 class="text-xl font-semibold">📡 Gateway Central</h2></div>
-      <div class="flex items-center space-x-2 mb-4">
-        <div id="health-nod3-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
-        <span id="health-nod3-text" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistem Offline</span>
-      </div>
-      <div class="space-y-4 text-sm mt-auto">
-        <div class="w-full bg-slate-900 border border-slate-700 py-3 rounded font-bold text-slate-500 text-center text-xs flex flex-col gap-1">
-          <span>📡 MODUL GSM A6</span>
-          <span>🔊 AUDIO DFPLAYER</span>
+        <div id="usa2-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 transition-all duration-300">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl font-semibold">🔬 Ușa 2 (Laborator)</h2>
+            </div>
+            <div class="flex items-center space-x-2 mb-4">
+                <div id="health-u2-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
+                <span id="health-u2-text" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistem Offline</span>
+            </div>
+            <div class="space-y-4 text-sm">
+                <p>Status: <span id="u2-state" class="text-green-400 font-bold font-mono">ÎNCHIS</span></p>
+                <button onclick="publish('comenzi/usa2', 'OPEN')" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition shadow-lg active:scale-95 text-sm">DESCHIDE MANUAL</button>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <div id="panic-card" class="bg-slate-900 p-5 rounded-xl border-2 border-red-900 border-dashed transition-all">
-      <div class="flex justify-between items-start mb-4"><h2 class="text-xl font-bold text-red-500">🚨 CONTROL PANICĂ</h2></div>
-      <div class="space-y-4 flex flex-col justify-between h-[calc(100%-2rem)]">
-        <button id="panic-btn" onclick="publishWithRetain('comenzi/global', 'LOCKDOWN')" class="w-full bg-red-700 hover:bg-red-600 text-white py-6 rounded-lg font-black text-xl uppercase shadow-[0_0_20px_rgba(185,28,28,0.5)] active:scale-95 transition mt-2">LOCKDOWN</button>
-        <button onclick="showUnlockPrompt()" class="w-full bg-slate-800 hover:bg-slate-700 text-green-500 py-2 rounded-lg font-bold text-xs uppercase border border-green-900/30 transition mt-auto">DEBLOCARE (2FA)</button>
-      </div>
-    </div>
-  </main>
+        <div id="nod3-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 transition-all duration-300 flex flex-col">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl font-semibold">📡 Gateway Central</h2>
+            </div>
+            <div class="flex items-center space-x-2 mb-4">
+                <div id="health-nod3-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
+                <span id="health-nod3-text" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistem Offline</span>
+            </div>
+            <div class="space-y-4 text-sm mt-auto">
+                <div class="w-full bg-slate-900 border border-slate-700 py-3 rounded font-bold text-slate-500 text-center text-xs flex flex-col gap-1">
+                    <span>📡 MODUL GSM A6</span>
+                    <span>🔊 AUDIO DFPLAYER</span>
+                </div>
+            </div>
+        </div>
 
-  <section class="mt-4">
-    <div class="flex justify-between items-center mb-2">
-      <h3 class="text-slate-400 text-xs font-mono uppercase tracking-widest">Evenimente Sistem Live</h3>
-      <button onclick="logout()" class="text-xs text-red-400 hover:text-red-300 transition underline">Deconectare manuală</button>
-    </div>
-    <div id="terminal" class="bg-black p-4 rounded-lg h-32 md:h-40 overflow-y-auto font-mono text-xs text-green-500 border border-slate-700 shadow-inner">
-      <div>[SISTEM] Așteptare autentificare...</div>
-    </div>
-  </section>
+        <div id="panic-card" class="bg-slate-900 p-5 rounded-xl border-2 border-red-900 border-dashed transition-all">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl font-bold text-red-500">🚨 CONTROL PANICĂ</h2>
+            </div>
+            <div class="space-y-4 flex flex-col justify-between h-[calc(100%-2rem)]">
+                <button id="panic-btn" onclick="publishWithRetain('comenzi/global', 'LOCKDOWN')" class="w-full bg-red-700 hover:bg-red-600 text-white py-6 rounded-lg font-black text-xl uppercase shadow-[0_0_20px_rgba(185,28,28,0.5)] active:scale-95 transition mt-2">LOCKDOWN</button>
+                <button onclick="showUnlockPrompt()" class="w-full bg-slate-800 hover:bg-slate-700 text-green-500 py-2 rounded-lg font-bold text-xs uppercase border border-green-900/30 transition mt-auto">DEBLOCARE (2FA)</button>
+            </div>
+        </div>
 
-  <script>
-    // --- 1. CONFIGURARE FIREBASE ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyCF4stXgPWTQ9KKyTA1ZzOZ2v3B9tglVUA",
-      authDomain: "smartacceicenta.firebaseapp.com",
-      projectId: "smartacceicenta",
-      storageBucket: "smartacceicenta.appspot.com",
-      messagingSenderId: "280513053928",
-      appId: "1:280513053928:web:b57b679c9e5992cbffb55d"
-    };
-    
-    // Initializare conexiune Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    </main>
 
-    // --- 2. VARIABILE SISTEM ---
-    const VALID_USER = "excel";
-    const VALID_PASS = "excel";
-    const TIMEOUT_MINUTES = 3; 
-    let inactivityTimer;
-    let client; 
-    
-    let totpAuth = new OTPAuth.TOTP({
-      issuer: 'SmartAccess',
-      label: 'admin',
-      algorithm: 'SHA1',
-      digits: 6,
-      period: 30, 
-      secret: OTPAuth.Secret.fromBase32('LMFVEU2FGNZWINQ')
-    });
+    <section class="mt-4">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-slate-400 text-xs font-mono uppercase tracking-widest">Evenimente Sistem Live</h3>
+            <button onclick="logout()" class="text-xs text-red-400 hover:text-red-300 transition underline">Deconectare manuală</button>
+        </div>
+        <div id="terminal" class="bg-black p-4 rounded-lg h-32 md:h-40 overflow-y-auto font-mono text-xs text-green-500 border border-slate-700 shadow-inner">
+            <div>[SISTEM] Așteptare autentificare...</div>
+        </div>
+    </section>
 
-    window.onload = function() {
-      document.getElementById('login-overlay').classList.remove('hidden');
-    };
-
-    function handleEnterStep1(e) { if (e.key === 'Enter') verifyCredentials(); }
-    function handleEnterStep2(e) { if (e.key === 'Enter') verifyTOTP(); }
-
-    function verifyCredentials() {
-      const user = document.getElementById('username').value;
-      const pass = document.getElementById('password').value;
-      const err = document.getElementById('login-error-1');
-      
-      if (user === VALID_USER && pass === VALID_PASS) {
-        err.classList.add('hidden');
-        document.getElementById('login-step-1').classList.add('hidden');
-        document.getElementById('login-step-2').classList.remove('hidden');
-        document.getElementById('otp-code').focus();
-      } else {
-        err.classList.remove('hidden');
-      }
-    }
-
-    function verifyTOTP() {
-      const userInput = document.getElementById('otp-code').value;
-      const err = document.getElementById('login-error-2');
-      
-      if (totpAuth.validate({ token: userInput, window: 10000 }) !== null) {
-        err.classList.add('hidden');
-        document.getElementById('login-overlay').classList.add('hidden');
-        startMQTT();
-        setupInactivityListeners();
-        resetInactivityTimer();
-      } else {
-        err.classList.remove('hidden');
-      }
-    }
-
-    function resetLogin() {
-      document.getElementById('login-step-2').classList.add('hidden');
-      document.getElementById('login-step-1').classList.remove('hidden');
-      document.getElementById('otp-code').value = '';
-      document.getElementById('password').value = '';
-    }
-
-    function startMQTT() {
-      const mqttUrl = 'wss://smartaccess-licenta:4O3BMxG9gL0MSyF8@smartaccess-licenta.cloud.shiftr.io:443'; 
-      client = mqtt.connect(mqttUrl);
-
-      client.on('connect', function () {
-        log('<span class="text-green-400">Broker Online. Sistem operativ.</span>', 'Sistem pornit. Broker MQTT conectat.');
-        document.getElementById('connection-status').innerHTML = '<span class="status-dot bg-green-500 shadow-[0_0_10px_#22c55e]"></span> <span class="font-mono text-sm text-green-500">BROKER ONLINE</span>';
-        client.subscribe(['status/#', 'logs/#', 'health/#', 'comenzi/global', 'sec/send_sms']);
-      });
-
-      client.on('message', function (topic, message) {
-        const payload = message.toString();
+    <script>
+        const VALID_USER = "excel";
+        const VALID_PASS = "excel";
+        const TIMEOUT_MINUTES = 3; 
+        let inactivityTimer;
+        let client; 
         
-        if (topic.startsWith('logs/')) {
-          log(payload, payload);
-        }
-        
-        if (topic === 'sec/send_sms') {
-          log('<span class="text-blue-400 font-bold">📲 SISTEM: Se expediază SMS cu codul de acces către administrator...</span>', 'Se expediază SMS cu cod OTP către administrator.');
-        }
-        
-        if (topic === 'health/usa1') updateSystemHealth('u1', payload);
-        if (topic === 'health/usa2') updateSystemHealth('u2', payload);
-        if (topic === 'health/nod3') updateSystemHealth('nod3', payload);
-        
-        if (topic === 'status/usa1') updateDoorStatus('usa1', 'u1', payload);
-        if (topic === 'status/usa2') updateDoorStatus('usa2', 'u2', payload);
-
-        if (topic === 'comenzi/global') {
-          if (payload === "LOCKDOWN") {
-            applyLockdownVisuals(true);
-          } else if (payload === "UNLOCK") {
-            applyLockdownVisuals(false);
-          }
-        }
-      });
-    }
-
-    function publishWithRetain(topic, message) {
-      if (client && client.connected) {
-        client.publish(topic, message, { retain: true, qos: 1 });
-      }
-    }
-
-    function showUnlockPrompt() {
-      document.getElementById('unlock-modal').classList.remove('hidden');
-      document.getElementById('unlock-otp').focus();
-    }
-
-    function hideUnlockPrompt() {
-      document.getElementById('unlock-modal').classList.add('hidden');
-      document.getElementById('unlock-error').classList.add('hidden');
-      document.getElementById('unlock-otp').value = '';
-    }
-
-    function verifyUnlock2FA() {
-      const code = document.getElementById('unlock-otp').value;
-      const err = document.getElementById('unlock-error');
-      
-      if (totpAuth.validate({ token: code, window: 1 }) !== null) {
-        err.classList.add('hidden');
-        publishWithRetain('comenzi/global', 'UNLOCK');
-        hideUnlockPrompt();
-      } else { 
-        err.classList.remove('hidden'); 
-      }
-    }
-
-    function applyLockdownVisuals(active) {
-      ['usa1-card', 'usa2-card', 'nod3-card', 'panic-card'].forEach(id => {
-        const el = document.getElementById(id);
-        if (active) {
-          el.classList.add('lockdown-ui');
-          if (id === 'panic-card') {
-            log('<span class="text-red-500 font-bold">🚨 ALERTĂ: Sistem blocat în LOCKDOWN!</span>', 'ALERTĂ: Sistem blocat în LOCKDOWN (Panică).');
-          }
-        } else {
-          el.classList.remove('lockdown-ui');
-          if (id === 'panic-card') {
-            log('<span class="text-green-500 font-bold">✅ INFO: Lockdown anulat. Acces restabilit.</span>', 'INFO: Lockdown anulat din Command Center.');
-          }
-        }
-      });
-    }
-
-    function publish(topic, message) {
-      if (client && client.connected) {
-        client.publish(topic, message);
-      } else {
-        alert("Sistemul este offline. Te rugăm să te autentifici.");
-      }
-    }
-
-    // --- 3. FUNCȚIA LOG MODIFICATĂ PENTRU FIREBASE ---
-    // Primeste 'htmlMsg' pentru ecran si 'rawMsg' pentru baza de date
-    function log(htmlMsg, rawMsg = null) {
-      const term = document.getElementById('terminal');
-      const div = document.createElement('div');
-      
-      // Afișare pe ecranul browserului
-      div.innerHTML = `<span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> ${htmlMsg}`;
-      term.appendChild(div);
-      term.scrollTop = term.scrollHeight;
-
-      // Trimitere către Firebase (rulare tăcută în fundal)
-      if (rawMsg) {
-        db.collection("istoric").add({
-          eveniment: rawMsg,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          data_locala: new Date().toLocaleString('ro-RO')
-        }).catch(error => {
-          console.error("Eroare la salvarea în Firebase: ", error);
+        let totpAuth = new OTPAuth.TOTP({
+            issuer: 'SmartAccess',
+            label: 'admin',
+            algorithm: 'SHA1',
+            digits: 6,
+            period: 30, 
+            secret: OTPAuth.Secret.fromBase32('LMFVEU2FGNZWINQ')
         });
-      }
-    }
 
-    function updateDoorStatus(cardPrefix, spanPrefix, status) {
-      const el = document.getElementById(`${spanPrefix}-state`);
-      const card = document.getElementById(`${cardPrefix}-card`);
-      
-      if (status.includes('DESCHIS')) {
-        card.style.borderColor = "#eab308";
-        startTimer(spanPrefix, 10); 
-      } else if (status === 'INCHIS') {
-        if (window[`interval_${spanPrefix}`]) {
-          clearInterval(window[`interval_${spanPrefix}`]);
+        window.onload = function() {
+            document.getElementById('login-overlay').classList.remove('hidden');
+        };
+
+        function handleEnterStep1(e) { if (e.key === 'Enter') verifyCredentials(); }
+        function handleEnterStep2(e) { if (e.key === 'Enter') verifyTOTP(); }
+
+        function verifyCredentials() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const err = document.getElementById('login-error-1');
+            
+            if (user === VALID_USER && pass === VALID_PASS) {
+                err.classList.add('hidden');
+                document.getElementById('login-step-1').classList.add('hidden');
+                document.getElementById('login-step-2').classList.remove('hidden');
+                document.getElementById('otp-code').focus();
+            } else {
+                err.classList.remove('hidden');
+            }
         }
-        card.style.borderColor = "";
-        el.innerHTML = 'ÎNCHIS';
-        el.className = 'text-green-400 font-bold font-mono';
-      }
-    }
 
-    function startTimer(doorPrefix, seconds) {
-      let timeLeft = seconds;
-      const stateElement = document.getElementById(`${doorPrefix}-state`);
-      stateElement.className = 'text-yellow-400 font-bold animate-pulse font-mono';
-      
-      if (window[`interval_${doorPrefix}`]) {
-        clearInterval(window[`interval_${doorPrefix}`]);
-      }
-      window[`interval_${doorPrefix}`] = setInterval(() => {
-        stateElement.innerHTML = `DESCHIS (${timeLeft}s)`;
-        timeLeft--;
-        if (timeLeft < 0) {
-          clearInterval(window[`interval_${doorPrefix}`]);
+        function verifyTOTP() {
+            const userInput = document.getElementById('otp-code').value;
+            const err = document.getElementById('login-error-2');
+            
+            if (totpAuth.validate({ token: userInput, window: 10000 }) !== null) {
+                err.classList.add('hidden');
+                document.getElementById('login-overlay').classList.add('hidden');
+                startMQTT();
+                setupInactivityListeners();
+                resetInactivityTimer();
+            } else {
+                err.classList.remove('hidden');
+            }
         }
-      }, 1000);
-    }
 
-    function updateSystemHealth(id, status) {
-      const dot = document.getElementById(`health-${id}-dot`);
-      const text = document.getElementById(`health-${id}-text`);
-      if (!dot || !text) return; 
+        function resetLogin() {
+            document.getElementById('login-step-2').classList.add('hidden');
+            document.getElementById('login-step-1').classList.remove('hidden');
+            document.getElementById('otp-code').value = '';
+            document.getElementById('password').value = '';
+        }
 
-      let numeNod = id === 'nod3' ? 'Gateway GSM' : `Ușa ${id.replace('u', '')}`;
+        function startMQTT() {
+            const mqttUrl = 'wss://smartaccess-licenta:4O3BMxG9gL0MSyF8@smartaccess-licenta.cloud.shiftr.io:443'; 
+            client = mqtt.connect(mqttUrl);
 
-      if (status === 'online') {
-        dot.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,1)]";
-        text.innerText = "Sistem Live";
-        text.className = "text-[10px] text-green-400 font-bold uppercase tracking-widest";
-        log(`<span class="text-green-500 font-bold">🟢 INFO: ${numeNod} s-a conectat la rețea!</span>`, `Conectare: ${numeNod} a intrat online.`);
-      } else {
-        dot.className = "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]";
-        text.innerText = "Sistem Offline";
-        text.className = "text-[10px] text-slate-500 font-bold uppercase tracking-widest";
-        log(`<span class="text-red-500 font-bold">🔴 ALERTĂ: ${numeNod} a pierdut conexiunea!</span>`, `Deconectare: ${numeNod} a pierdut conexiunea.`);
-      }
-    }
+            client.on('connect', function () {
+                log('<span class="text-green-400">Broker Online. Sistem operativ.</span>');
+                document.getElementById('connection-status').innerHTML = '<span class="status-dot bg-green-500 shadow-[0_0_10px_#22c55e]"></span> <span class="font-mono text-sm text-green-500">BROKER ONLINE</span>';
+                client.subscribe(['status/#', 'logs/#', 'health/#', 'comenzi/global', 'sec/send_sms']);
+            });
 
-    function updateClock() {
-      document.getElementById('real-time-clock').innerText = new Date().toLocaleString('ro-RO');
-    }
-    setInterval(updateClock, 1000); 
-    updateClock();
+            client.on('message', function (topic, message) {
+                const payload = message.toString();
+                
+                if (topic.startsWith('logs/')) log(payload);
+                
+                if (topic === 'sec/send_sms') {
+                    log('<span class="text-blue-400 font-bold">📲 SISTEM: Se expediază SMS cu codul de acces către administrator...</span>');
+                }
+                
+                if (topic === 'health/usa1') updateSystemHealth('u1', payload);
+                if (topic === 'health/usa2') updateSystemHealth('u2', payload);
+                if (topic === 'health/nod3') updateSystemHealth('nod3', payload);
+                
+                if (topic === 'status/usa1') updateDoorStatus('usa1', 'u1', payload);
+                if (topic === 'status/usa2') updateDoorStatus('usa2', 'u2', payload);
 
-    function resetInactivityTimer() {
-      clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(logout, TIMEOUT_MINUTES * 60 * 1000);
-    }
+                if (topic === 'comenzi/global') {
+                    if (payload === "LOCKDOWN") applyLockdownVisuals(true);
+                    else if (payload === "UNLOCK") applyLockdownVisuals(false);
+                }
+            });
+        }
 
-    function setupInactivityListeners() {
-      ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => 
-        document.addEventListener(evt, resetInactivityTimer)
-      );
-    }
+        function publishWithRetain(topic, message) {
+            if (client && client.connected) {
+                client.publish(topic, message, { retain: true, qos: 1 });
+            }
+        }
 
-    function removeInactivityListeners() {
-      ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => 
-        document.removeEventListener(evt, resetInactivityTimer)
-      );
-    }
+        function showUnlockPrompt() {
+            document.getElementById('unlock-modal').classList.remove('hidden');
+            document.getElementById('unlock-otp').focus();
+        }
 
-    function logout() {
-      location.reload();
-    }
-  </script>
+        function hideUnlockPrompt() {
+            document.getElementById('unlock-modal').classList.add('hidden');
+            document.getElementById('unlock-error').classList.add('hidden');
+            document.getElementById('unlock-otp').value = '';
+        }
+
+        function verifyUnlock2FA() {
+            const code = document.getElementById('unlock-otp').value;
+            const err = document.getElementById('unlock-error');
+            if (totpAuth.validate({ token: code, window: 1 }) !== null) {
+                err.classList.add('hidden');
+                publishWithRetain('comenzi/global', 'UNLOCK');
+                hideUnlockPrompt();
+            } else { err.classList.remove('hidden'); }
+        }
+
+        function applyLockdownVisuals(active) {
+            ['usa1-card', 'usa2-card', 'nod3-card', 'panic-card'].forEach(id => {
+                const el = document.getElementById(id);
+                if(active) {
+                    el.classList.add('lockdown-ui');
+                    if(id === 'panic-card') log('<span class="text-red-500 font-bold">🚨 ALERTĂ: Sistem blocat în LOCKDOWN!</span>');
+                } else {
+                    el.classList.remove('lockdown-ui');
+                    if(id === 'panic-card') log('<span class="text-green-500 font-bold">✅ INFO: Lockdown anulat. Acces restabilit.</span>');
+                }
+            });
+        }
+
+        function publish(topic, message) {
+            if (client && client.connected) {
+                client.publish(topic, message);
+            } else {
+                alert("Sistemul este offline. Te rugăm să te autentifici.");
+            }
+        }
+
+        function log(msg) {
+            const term = document.getElementById('terminal');
+            const div = document.createElement('div');
+            div.innerHTML = `<span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function updateDoorStatus(cardPrefix, spanPrefix, status) {
+            const el = document.getElementById(`${spanPrefix}-state`);
+            const card = document.getElementById(`${cardPrefix}-card`);
+            
+            if (status.includes('DESCHIS')) {
+                card.style.borderColor = "#eab308";
+                startTimer(spanPrefix, 10); 
+            } else if (status === 'INCHIS') {
+                if(window[`interval_${spanPrefix}`]) clearInterval(window[`interval_${spanPrefix}`]);
+                
+                card.style.borderColor = "";
+                el.innerHTML = 'ÎNCHIS';
+                el.className = 'text-green-400 font-bold font-mono';
+            }
+        }
+
+        function startTimer(doorPrefix, seconds) {
+            let timeLeft = seconds;
+            const stateElement = document.getElementById(`${doorPrefix}-state`);
+            stateElement.className = 'text-yellow-400 font-bold animate-pulse font-mono';
+            if(window[`interval_${doorPrefix}`]) clearInterval(window[`interval_${doorPrefix}`]);
+            window[`interval_${doorPrefix}`] = setInterval(() => {
+                stateElement.innerHTML = `DESCHIS (${timeLeft}s)`;
+                timeLeft--;
+                if (timeLeft < 0) clearInterval(window[`interval_${doorPrefix}`]);
+            }, 1000);
+        }
+
+        function updateSystemHealth(id, status) {
+            const dot = document.getElementById(`health-${id}-dot`);
+            const text = document.getElementById(`health-${id}-text`);
+            
+            if (!dot || !text) return; 
+
+            if (status === 'online') {
+                dot.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,1)]";
+                text.innerText = "Sistem Live";
+                text.className = "text-[10px] text-green-400 font-bold uppercase tracking-widest";
+                
+                let numeNod = id === 'nod3' ? 'Gateway GSM' : `Ușa ${id.replace('u', '')}`;
+                log(`<span class="text-green-500 font-bold">🟢 INFO: ${numeNod} s-a conectat la rețea!</span>`);
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]";
+                text.innerText = "Sistem Offline";
+                text.className = "text-[10px] text-slate-500 font-bold uppercase tracking-widest";
+                
+                let numeNod = id === 'nod3' ? 'Gateway GSM' : `Ușa ${id.replace('u', '')}`;
+                log(`<span class="text-red-500 font-bold">🔴 ALERTĂ: ${numeNod} a pierdut conexiunea!</span>`);
+            }
+        }
+
+        function updateClock() {
+            document.getElementById('real-time-clock').innerText = new Date().toLocaleString('ro-RO');
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(logout, TIMEOUT_MINUTES * 60 * 1000);
+        }
+
+        function setupInactivityListeners() {
+            ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => 
+                document.addEventListener(evt, resetInactivityTimer)
+            );
+        }
+
+        function removeInactivityListeners() {
+            ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => 
+                document.removeEventListener(evt, resetInactivityTimer)
+            );
+        }
+
+        function logout() {
+            location.reload();
+        }
+    </script>
 </body>
 </html>
